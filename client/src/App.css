@@ -1,0 +1,421 @@
+.page {
+  padding: 24px 12px;
+  height: 105vh;
+  width: 98%;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 4px 6px;
+  margin-bottom: 18px;
+}
+
+.page-header h1 {
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  white-space: nowrap;
+  line-height: 48px; /* same height as search + picker — one clean row */
+  position: relative;
+  top: -5px; /* optical nudge */
+}
+
+/* Combined month-year picker */
+.my-picker {
+  position: relative;
+}
+
+.my-button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 12px;
+  height: 48px;
+  padding: 0 20px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #374151;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+  white-space: nowrap;
+}
+
+.my-caret {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-left: 6px;
+}
+
+.my-panel {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 50;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  padding: 12px;
+  width: 240px;
+}
+
+.my-year-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+  font-size: 15px;
+  font-weight: 700;
+  color: #111827;
+}
+
+.my-year-row button {
+  border: 1px solid #d1d5db;
+  background: #f9fafb;
+  border-radius: 8px;
+  width: 30px;
+  height: 30px;
+  font-size: 15px;
+  cursor: pointer;
+}
+
+.my-year-row button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.my-month-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+
+.my-month {
+  border: 1px solid transparent;
+  background: #f3f4f6;
+  border-radius: 8px;
+  padding: 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  cursor: pointer;
+}
+
+.my-month:hover {
+  background: #e5e7eb;
+}
+
+.my-month.active {
+  background: #2563eb;
+  color: #fff;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+
+.toolbar-right {
+  justify-content: flex-end;
+}
+
+/* Search bar in the page header, between the title and the period picker */
+.header-search {
+  flex: 1;
+  max-width: 560px;
+  margin: 0 auto;
+  height: 48px;
+  padding: 0 20px;
+}
+
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 10px;
+}
+
+.pagination button {
+  border: 1px solid #d1d5db;
+  background: #fff;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.pagination button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.pagination button:not(:disabled):hover {
+  background: #f3f4f6;
+}
+
+.page-info {
+  font-size: 13.5px;
+  color: #6b7280;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.card {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 14px;
+  padding: 14px 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.search {
+  width: 100%;
+  display: block;
+  font-size: 15px;
+  border: 1px solid #d1d5db;
+  border-radius: 24px;
+  outline: none;
+}
+
+.search:focus {
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.banner.error {
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  color: #b91c1c;
+  border-radius: 8px;
+  padding: 12px 16px;
+  margin-bottom: 14px;
+  font-size: 14px;
+}
+
+.table-wrap {
+  overflow: auto;
+  flex: 1;
+  min-height: 0;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+}
+
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  font-size: 14px;
+}
+
+th,
+td {
+  border-right: 1px solid #e5e7eb;
+  border-bottom: 1px solid #e5e7eb;
+  padding: 10px 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis; /* resized-smaller columns truncate gracefully */
+  text-align: left;
+  background: #fff;
+}
+
+/* Drag handle on each subheader cell's right edge — resizes the column */
+thead tr:nth-child(2) th {
+  position: sticky;
+  overflow: visible; /* so the handle can sit on the edge */
+}
+
+.col-resizer {
+  position: absolute;
+  top: 0;
+  right: -4px;
+  width: 8px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 6;
+  touch-action: none;
+}
+
+.col-resizer:hover {
+  background: rgba(37, 99, 235, 0.35);
+  border-radius: 2px;
+}
+
+thead th {
+  position: sticky;
+  background: #fff;
+  z-index: 2;
+}
+
+/* Row 1 — group band: dark slate strip, clearly separate from the subheader */
+thead tr:first-child th {
+  top: 0;
+  height: 38px;
+  text-transform: uppercase;
+  font-size: 12px;
+  letter-spacing: 0.6px;
+  font-weight: 700;
+  color: #1f2937;
+  background: #c2c1c1fd;
+  border-right-color: #adaeb1;
+  border-bottom: 2px solid #9ca3af;
+  text-align: left;
+}
+
+/* Row 2 — subheader: light gray, smaller and quieter */
+thead tr:nth-child(2) th {
+  top: 38px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #374151;
+  background: #edeeef;
+  border-right-color: #9ca3af;
+  border-bottom: 2px solid #d1d5db;
+}
+
+.group-header.grp-warn {
+  color: #c2410c;
+}
+
+.hint {
+  font-size: 11px;
+  font-weight: 500;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+td.check-bad {
+  background: #fef2f2;
+  color: #b91c1c;
+  font-weight: 700;
+}
+
+tbody tr:hover td:not(.check-bad) {
+  background: #f0f6ff;
+}
+
+.status-cell {
+  text-align: center;
+  padding: 32px;
+  color: #6b7280;
+  font-weight: 600;
+}
+
+/* Columns flagged sticky in the layout stay pinned during horizontal scroll */
+th.sticky-col,
+td.sticky-col {
+  position: sticky;
+  z-index: 3;
+  white-space: nowrap; /* hash IDs stay on one line */
+}
+
+thead th.sticky-col {
+  z-index: 4;
+}
+
+td.sticky-col {
+  box-shadow: 2px 0 4px rgba(126, 125, 125, 0.04);
+}
+
+/* ------------------------- Mobile (tablets & phones) ---------------------- */
+@media (max-width: 768px) {
+  .page {
+    padding: 10px 8px;
+    height: auto;
+    min-height: 100dvh;
+    width: 100%;
+  }
+
+  /* Header stacks: title + picker on one line, search full-width below */
+  .page-header {
+    flex-wrap: wrap;
+    gap: 10px;
+    padding: 2px;
+    margin-bottom: 10px;
+  }
+
+  .page-header h1 {
+    order: 1;
+    font-size: 21px;
+    line-height: 42px;
+  }
+
+  .my-picker {
+    order: 2;
+    margin-left: auto;
+  }
+
+  .my-button {
+    height: 42px;
+    padding: 0 14px;
+    font-size: 14px;
+  }
+
+  .header-search {
+    order: 3;
+    flex-basis: 100%;
+    max-width: 100%;
+    height: 42px;
+    padding: 0 16px;
+    font-size: 14px;
+    margin: 0;
+  }
+
+  .card {
+    padding: 8px 6px;
+    border-radius: 10px;
+  }
+
+  .table-wrap {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  table {
+    font-size: 12.5px;
+  }
+
+  th,
+  td {
+    padding: 8px 10px;
+  }
+
+  thead tr:first-child th {
+    font-size: 11px;
+    height: 34px;
+  }
+
+  thead tr:nth-child(2) th {
+    top: 34px;
+    font-size: 12px;
+  }
+
+  /* Pinned columns are narrow on phones — long emails/names get ellipsis */
+  th.sticky-col,
+  td.sticky-col {
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .pagination {
+    width: 100%;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .pagination button {
+    padding: 8px 12px;
+  }
+}
