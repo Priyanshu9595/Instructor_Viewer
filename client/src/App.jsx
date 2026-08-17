@@ -141,16 +141,35 @@ export default function App() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const m = `${year}-${String(month).padStart(2, "0")}`;
+
+    // Instant paint: show the last saved copy of this month immediately,
+    // then silently swap in fresh data when the fetch lands.
+    let hadCache = false;
+    try {
+      const saved = JSON.parse(localStorage.getItem("allocCache") || "null");
+      if (saved && saved.month === m && saved.body?.rows) {
+        setData(saved.body);
+        hadCache = true;
+      }
+    } catch {
+      /* corrupt cache — ignore */
+    }
+
     (async () => {
-      setLoading(true);
+      setLoading(!hadCache); // spinner only when there's nothing to show yet
       setError(null);
       try {
-        const m = `${year}-${String(month).padStart(2, "0")}`;
         const res = await fetch(`/api/allocations?month=${m}`, { signal: controller.signal });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || `API error ${res.status}`);
         setData(body);
-        setPage(1);
+        if (!hadCache) setPage(1);
+        try {
+          localStorage.setItem("allocCache", JSON.stringify({ month: m, body }));
+        } catch {
+          /* storage full — skip saving */
+        }
       } catch (err) {
         if (err.name !== "AbortError") setError(err.message);
       } finally {
