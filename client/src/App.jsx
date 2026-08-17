@@ -118,6 +118,9 @@ export default function App() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const isMobile = useIsMobile();
+  // Page load/refresh → bypass the server cache so data is always live;
+  // month switching within the session still uses the fast cache.
+  const firstLoad = useRef(true);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -126,11 +129,15 @@ export default function App() {
       setError(null);
       try {
         const m = `${year}-${String(month).padStart(2, "0")}`;
-        const res = await fetch(`/api/allocations?month=${m}`, { signal: controller.signal });
+        const fresh = firstLoad.current ? "1" : "0";
+        const res = await fetch(`/api/allocations?month=${m}&fresh=${fresh}`, {
+          signal: controller.signal,
+        });
         const body = await res.json();
         if (!res.ok) throw new Error(body.error || `API error ${res.status}`);
         setData(body);
         setPage(1);
+        firstLoad.current = false;
       } catch (err) {
         if (err.name !== "AbortError") setError(err.message);
       } finally {

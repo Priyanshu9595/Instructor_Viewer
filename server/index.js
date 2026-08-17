@@ -179,10 +179,12 @@ app.get("/api/allocations", async (req, res) => {
   try {
     const { bigquery, projectId } = getBigQuery();
     const month = /^\d{4}-\d{2}$/.test(req.query.month || "") ? req.query.month : "2026-08";
+    // fresh=1 (sent on page load) bypasses the cache → refresh = live data.
+    const fresh = req.query.fresh === "1";
 
     let rows;
     const cached = allocCache.get(month);
-    if (cached && Date.now() - cached.ts < CACHE_TTL) {
+    if (!fresh && cached && Date.now() - cached.ts < CACHE_TTL) {
       rows = cached.rows;
     } else {
       const [raw] = await bigquery.query({ query: ALLOC_SQL(projectId), params: { month } });
