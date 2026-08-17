@@ -139,10 +139,11 @@ const ALLOC_SQL = (projectId) => `
     -- month (used when the roster has no entry, e.g. inactive instructors).
     SELECT s.instructor_user_id,
       STRING_AGG(DISTINCT
-        CASE WHEN s.institute_id = '${KKH_INSTITUTE_ID}' THEN 'NIAT_KKH' ELSE s.institute_name END, ', ') AS session_workspace
+        CASE WHEN s.institute_id = '${KKH_INSTITUTE_ID}' THEN 'NIAT_KKH' ELSE s.institute_name END, ', ') AS session_workspace,
+      -- Central BOA point-of-contact — fallback manager when roster has none.
+      STRING_AGG(DISTINCT s.central_boa_poc, ', ') AS session_poc
     FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
     WHERE FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
-      AND s.institute_name IS NOT NULL
     GROUP BY 1
   ),
   master AS (
@@ -164,7 +165,7 @@ const ALLOC_SQL = (projectId) => `
     r.top_department,
     COALESCE(r.designation, e.m_designation) AS designation,
     COALESCE(r.workspace, sc.session_workspace, e.m_workspace) AS workspace,
-    r.source_department,
+    COALESCE(r.source_department, sc.session_poc) AS source_department,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
