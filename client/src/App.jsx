@@ -319,7 +319,7 @@ export default function App() {
               {loading ? (
                 <tr>
                   <td className="status-cell" colSpan={columns.length || 1}>
-                    Loading from BigQuery…
+                    Loading...
                   </td>
                 </tr>
               ) : pageRows.length === 0 ? (
