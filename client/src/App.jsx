@@ -52,6 +52,81 @@ const checkState = (col, value) => {
   return Math.abs(parseFloat(value) - col.check.expect) <= col.check.tolerance ? "ok" : "bad";
 };
 
+// Searchable multi-select university filter: type to find a university,
+// tick any number of them, the table shows only those instructors.
+function UniversityFilter({ options, selected, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const ref = useRef(null);
+
+  useEffect(() => {
+    const close = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener("mousedown", close);
+    return () => document.removeEventListener("mousedown", close);
+  }, []);
+
+  const shown = options.filter((o) => o.toLowerCase().includes(query.trim().toLowerCase()));
+
+  const toggle = (name) => {
+    const next = new Set(selected);
+    if (next.has(name)) next.delete(name);
+    else next.add(name);
+    onChange(next);
+  };
+
+  const label =
+    selected.size === 0
+      ? "All Universities"
+      : selected.size === 1
+        ? [...selected][0]
+        : `${selected.size} Universities`;
+
+  return (
+    <div className="uni-picker" ref={ref}>
+      <button className="my-button uni-button" onClick={() => setOpen((o) => !o)}>
+        {label} <span className="my-caret">▾</span>
+      </button>
+
+      {open && (
+        <div className="my-panel uni-panel">
+          <input
+            className="uni-search"
+            type="text"
+            placeholder="Search university..."
+            value={query}
+            autoFocus
+            onChange={(e) => setQuery(e.target.value)}
+          />
+          <div className="uni-actions">
+            <span className="page-info">{selected.size} selected</span>
+            {selected.size > 0 && (
+              <button className="uni-clear" onClick={() => onChange(new Set())}>Clear all</button>
+            )}
+          </div>
+          <div className="uni-list">
+            {shown.length === 0 ? (
+              <div className="uni-empty">No match</div>
+            ) : (
+              shown.map((name) => (
+                <label key={name} className="uni-item">
+                  <input
+                    type="checkbox"
+                    checked={selected.has(name)}
+                    onChange={() => toggle(name)}
+                  />
+                  <span>{name}</span>
+                </label>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // One combined control: a button showing "August 2026" that opens a single
 // panel with year arrows on top and a 12-month grid below.
 function MonthYearPicker({ year, month, onChange }) {
@@ -181,14 +256,35 @@ export default function App() {
 
   const { groups, columns } = data;
 
-  // Search + paginate locally — the month's rows are already loaded.
+  // All universities present in this month's data (workspace values, split).
+  const universities = useMemo(() => {
+    const set = new Set();
+    for (const r of data.rows) {
+      String(r.workspace || "")
+        .split(",")
+        .map((x) => x.trim())
+        .filter(Boolean)
+        .forEach((u) => set.add(u));
+    }
+    return [...set].sort();
+  }, [data.rows]);
+
+  const [uniSelected, setUniSelected] = useState(new Set());
+
+  // Search + university filter + paginate locally.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
-    if (!q) return data.rows;
-    return data.rows.filter((r) =>
-      SEARCH_KEYS.some((k) => String(r[k] || "").toLowerCase().includes(q))
-    );
-  }, [data.rows, search]);
+    return data.rows.filter((r) => {
+      if (q && !SEARCH_KEYS.some((k) => String(r[k] || "").toLowerCase().includes(q))) {
+        return false;
+      }
+      if (uniSelected.size > 0) {
+        const mine = String(r.workspace || "").split(",").map((x) => x.trim());
+        if (!mine.some((u) => uniSelected.has(u))) return false;
+      }
+      return true;
+    });
+  }, [data.rows, search, uniSelected]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -279,6 +375,14 @@ export default function App() {
           value={search}
           onChange={(e) => {
             setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+        <UniversityFilter
+          options={universities}
+          selected={uniSelected}
+          onChange={(next) => {
+            setUniSelected(next);
             setPage(1);
           }}
         />

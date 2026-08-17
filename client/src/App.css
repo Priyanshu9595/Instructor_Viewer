@@ -114,6 +114,86 @@
   color: #fff;
 }
 
+/* University multi-select filter */
+.uni-picker {
+  position: relative;
+}
+
+.uni-button {
+  max-width: 260px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.uni-panel {
+  width: 300px;
+  padding: 10px;
+}
+
+.uni-search {
+  width: 100%;
+  padding: 9px 12px;
+  font-size: 14px;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  outline: none;
+  margin-bottom: 8px;
+}
+
+.uni-search:focus {
+  border-color: #2563eb;
+}
+
+.uni-actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 6px;
+}
+
+.uni-clear {
+  border: none;
+  background: none;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.uni-list {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.uni-item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 8px;
+  border-radius: 8px;
+  font-size: 13.5px;
+  color: #1f2937;
+  cursor: pointer;
+}
+
+.uni-item:hover {
+  background: #f3f4f6;
+}
+
+.uni-item input {
+  accent-color: #2563eb;
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+}
+
+.uni-empty {
+  padding: 14px;
+  text-align: center;
+  color: #9ca3af;
+  font-size: 13px;
+}
+
 .toolbar {
   display: flex;
   align-items: center;
@@ -355,6 +435,15 @@ td.sticky-col {
   .my-picker {
     order: 2;
     margin-left: auto;
+  }
+
+  .uni-picker {
+    order: 2;
+  }
+
+  .uni-button {
+    height: 42px;
+    max-width: 170px;
   }
 
   .my-button {
