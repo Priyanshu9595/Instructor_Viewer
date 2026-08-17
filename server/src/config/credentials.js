@@ -28,8 +28,21 @@ export function resolveCredentials() {
 
   const b64 = process.env.GCP_SA_KEY_B64;
   if (b64) {
+    // Tolerate common paste mistakes: surrounding quotes, spaces, line breaks.
+    const cleaned = b64.trim().replace(/^["']+|["']+$/g, "").replace(/\s+/g, "");
+    const decoded = Buffer.from(cleaned, "base64").toString("utf8");
+    try {
+      const parsed = JSON.parse(decoded);
+      if (!parsed.private_key || !parsed.client_email) throw new Error("not a service account key");
+    } catch {
+      throw new Error(
+        "GCP_SA_KEY_B64 is set but does not decode to a valid service-account JSON.\n" +
+          "  Re-copy the ENTIRE base64 string (one long line, no quotes, no line breaks)\n" +
+          "  and paste it as the variable's value."
+      );
+    }
     const tmpFile = path.join(os.tmpdir(), `gcp-sa-${process.pid}.json`);
-    fs.writeFileSync(tmpFile, Buffer.from(b64, "base64"), { mode: 0o600 });
+    fs.writeFileSync(tmpFile, decoded, { mode: 0o600 });
     process.env.GOOGLE_APPLICATION_CREDENTIALS = tmpFile;
     return tmpFile;
   }
