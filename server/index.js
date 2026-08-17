@@ -145,24 +145,31 @@ const ALLOC_SQL = (projectId) => `
       AND s.institute_name IS NOT NULL
     GROUP BY 1
   ),
-  emails AS (
-    SELECT instructor_user_id, ANY_VALUE(instructor_mail) AS email
+  master AS (
+    -- Instructor master (reverse_etl): email + fallback for department,
+    -- designation and workspace when the manager roster has no entry.
+    SELECT instructor_user_id,
+      ANY_VALUE(instructor_mail) AS email,
+      ANY_VALUE(instructor_category) AS m_department,
+      ANY_VALUE(instructor_role) AS m_designation,
+      ANY_VALUE(institute_name) AS m_workspace
     FROM \`${projectId}.niat_reverse_etl_bases.niat_instructor_details\`
-    WHERE instructor_mail IS NOT NULL
     GROUP BY 1
   )
   SELECT
     COALESCE(r.instructor_user_id, s.instructor_user_id) AS instructor_user_id,
     COALESCE(r.employee_name, s.session_name) AS employee_name,
     e.email,
-    r.department, r.top_department, r.designation,
-    COALESCE(r.workspace, sc.session_workspace) AS workspace,
+    COALESCE(r.department, e.m_department) AS department,
+    r.top_department,
+    COALESCE(r.designation, e.m_designation) AS designation,
+    COALESCE(r.workspace, sc.session_workspace, e.m_workspace) AS workspace,
     r.source_department,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
   LEFT JOIN sess_campus sc USING (instructor_user_id)
-  LEFT JOIN emails e USING (instructor_user_id)
+  LEFT JOIN master e USING (instructor_user_id)
 `;
 
 const allocCache = new Map(); // month → { ts, rows }
