@@ -1,5 +1,5 @@
 {
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "https://YOUR-BACKEND-URL/api/$1" }
+    { "source": "/api/(.*)", "destination": "https://site--instructor-viewer-backend--7mylfhf6cdg7.code.run/api/$1" }
   ]
 }
