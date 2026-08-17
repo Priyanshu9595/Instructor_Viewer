@@ -241,11 +241,12 @@ app.get("/api/allocations", async (req, res) => {
           source_department: rec.source_department,
           product_check: 1,
           region_check: 1,
-          // Academy language detail is not in the data — Others carries 100%.
-          // Instructors with no sessions get their whole allocation here.
-          academy_others: 1,
+          // Academy: language detail is not in the data — language columns and
+          // Check stay blank. Instructors with no sessions still get their
+          // whole allocation under Academy Product %.
+          academy_others: null,
           academy_product_pct: hasSessions ? null : 1,
-          academy_check: 1,
+          academy_check: null,
           intensive_product_pct: frac("intensive"),
           intensive_offline_product_pct: frac("intensive_offline"),
           niat_batch_1_2_product_cost: frac("niat_batch_1_2"),
