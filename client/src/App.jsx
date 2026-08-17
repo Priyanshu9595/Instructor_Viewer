@@ -52,10 +52,11 @@ const checkState = (col, value) => {
   return Math.abs(parseFloat(value) - col.check.expect) <= col.check.tolerance ? "ok" : "bad";
 };
 
-// Searchable multi-select university filter: type to find a university,
-// tick any number of them, the table shows only those instructors.
+// Searchable multi-select university filter, embedded in a column header.
+// The panel is position:fixed so the table's scroll container can't clip it.
 function UniversityFilter({ options, selected, onChange }) {
   const [open, setOpen] = useState(false);
+  const [pos, setPos] = useState({ top: 0, left: 0 });
   const [query, setQuery] = useState("");
   const ref = useRef(null);
 
@@ -67,6 +68,15 @@ function UniversityFilter({ options, selected, onChange }) {
     return () => document.removeEventListener("mousedown", close);
   }, []);
 
+  const toggleOpen = (e) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    setPos({
+      top: rect.bottom + 6,
+      left: Math.max(8, Math.min(rect.left - 8, window.innerWidth - 320)),
+    });
+    setOpen((o) => !o);
+  };
+
   const shown = options.filter((o) => o.toLowerCase().includes(query.trim().toLowerCase()));
 
   const toggle = (name) => {
@@ -76,21 +86,18 @@ function UniversityFilter({ options, selected, onChange }) {
     onChange(next);
   };
 
-  const label =
-    selected.size === 0
-      ? "All Universities"
-      : selected.size === 1
-        ? [...selected][0]
-        : `${selected.size} Universities`;
-
   return (
-    <div className="uni-picker" ref={ref}>
-      <button className="my-button uni-button" onClick={() => setOpen((o) => !o)}>
-        {label} <span className="my-caret">▾</span>
+    <span className="uni-picker" ref={ref}>
+      <button
+        className={selected.size > 0 ? "uni-trigger active" : "uni-trigger"}
+        onClick={toggleOpen}
+        title="Filter by university"
+      >
+        ▾{selected.size > 0 && <span className="uni-count">{selected.size}</span>}
       </button>
 
       {open && (
-        <div className="my-panel uni-panel">
+        <div className="uni-panel" style={{ top: pos.top, left: pos.left }}>
           <input
             className="uni-search"
             type="text"
@@ -123,7 +130,7 @@ function UniversityFilter({ options, selected, onChange }) {
           </div>
         </div>
       )}
-    </div>
+    </span>
   );
 }
 
@@ -378,14 +385,6 @@ export default function App() {
             setPage(1);
           }}
         />
-        <UniversityFilter
-          options={universities}
-          selected={uniSelected}
-          onChange={(next) => {
-            setUniSelected(next);
-            setPage(1);
-          }}
-        />
         <MonthYearPicker
           year={year}
           month={month}
@@ -432,6 +431,16 @@ export default function App() {
                     style={stickyStyle(col)}
                   >
                     {col.label}
+                    {col.key === "designation" && (
+                      <UniversityFilter
+                        options={universities}
+                        selected={uniSelected}
+                        onChange={(next) => {
+                          setUniSelected(next);
+                          setPage(1);
+                        }}
+                      />
+                    )}
                     {col.hint && <div className="hint">({col.hint})</div>}
                     <div className="col-resizer" onPointerDown={(e) => startResize(e, col)} />
                   </th>

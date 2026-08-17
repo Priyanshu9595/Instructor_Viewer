@@ -114,20 +114,49 @@
   color: #fff;
 }
 
-/* University multi-select filter */
-.uni-picker {
-  position: relative;
+/* University multi-select filter (lives in the Designation column header) */
+.uni-trigger {
+  border: 1px solid #c5c8cd;
+  background: #fff;
+  border-radius: 6px;
+  margin-left: 8px;
+  padding: 1px 7px;
+  font-size: 11px;
+  color: #4b5563;
+  cursor: pointer;
+  vertical-align: middle;
 }
 
-.uni-button {
-  max-width: 260px;
-  overflow: hidden;
-  text-overflow: ellipsis;
+.uni-trigger:hover {
+  border-color: #2563eb;
+  color: #2563eb;
+}
+
+.uni-trigger.active {
+  background: #2563eb;
+  border-color: #2563eb;
+  color: #fff;
+  font-weight: 700;
+}
+
+.uni-count {
+  margin-left: 4px;
+  font-size: 11px;
 }
 
 .uni-panel {
+  position: fixed;
+  z-index: 60;
   width: 300px;
   padding: 10px;
+  background: #fff;
+  border: 1px solid #d1d5db;
+  border-radius: 12px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.14);
+  text-transform: none;
+  letter-spacing: normal;
+  font-weight: 400;
+  white-space: normal;
 }
 
 .uni-search {
@@ -437,13 +466,9 @@ td.sticky-col {
     margin-left: auto;
   }
 
-  .uni-picker {
-    order: 2;
-  }
-
-  .uni-button {
-    height: 42px;
-    max-width: 170px;
+  .uni-panel {
+    width: calc(100vw - 24px);
+    max-width: 300px;
   }
 
   .my-button {
