@@ -134,7 +134,18 @@ const ALLOC_SQL = (projectId) => `
     WHERE FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
     GROUP BY s.instructor_user_id, bucket
   )
-  , emails AS (
+  , sess_campus AS (
+    -- Fallback workspace: the campuses the instructor actually taught at this
+    -- month (used when the roster has no entry, e.g. inactive instructors).
+    SELECT s.instructor_user_id,
+      STRING_AGG(DISTINCT
+        CASE WHEN s.institute_id = '${KKH_INSTITUTE_ID}' THEN 'NIAT_KKH' ELSE s.institute_name END, ', ') AS session_workspace
+    FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
+    WHERE FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
+      AND s.institute_name IS NOT NULL
+    GROUP BY 1
+  ),
+  emails AS (
     SELECT instructor_user_id, ANY_VALUE(instructor_mail) AS email
     FROM \`${projectId}.niat_reverse_etl_bases.niat_instructor_details\`
     WHERE instructor_mail IS NOT NULL
@@ -144,10 +155,13 @@ const ALLOC_SQL = (projectId) => `
     COALESCE(r.instructor_user_id, s.instructor_user_id) AS instructor_user_id,
     COALESCE(r.employee_name, s.session_name) AS employee_name,
     e.email,
-    r.department, r.top_department, r.designation, r.workspace, r.source_department,
+    r.department, r.top_department, r.designation,
+    COALESCE(r.workspace, sc.session_workspace) AS workspace,
+    r.source_department,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
+  LEFT JOIN sess_campus sc USING (instructor_user_id)
   LEFT JOIN emails e USING (instructor_user_id)
 `;
 
