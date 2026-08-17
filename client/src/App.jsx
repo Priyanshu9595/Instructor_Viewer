@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import "./App.css";
 
 const MONTH_NAMES = [
@@ -62,10 +63,16 @@ function ColumnFilter({ options, selected, onChange }) {
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const [query, setQuery] = useState("");
   const ref = useRef(null);
+  const panelRef = useRef(null);
 
   useEffect(() => {
     const close = (e) => {
-      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+      if (
+        ref.current && !ref.current.contains(e.target) &&
+        (!panelRef.current || !panelRef.current.contains(e.target))
+      ) {
+        setOpen(false);
+      }
     };
     document.addEventListener("mousedown", close);
     return () => document.removeEventListener("mousedown", close);
@@ -99,40 +106,42 @@ function ColumnFilter({ options, selected, onChange }) {
         ▾{selected.size > 0 && <span className="uni-count">{selected.size}</span>}
       </button>
 
-      {open && (
-        <div className="uni-panel" style={{ top: pos.top, left: pos.left }}>
-          <input
-            className="uni-search"
-            type="text"
-            placeholder="Search..."
-            value={query}
-            autoFocus
-            onChange={(e) => setQuery(e.target.value)}
-          />
-          <div className="uni-actions">
-            <span className="page-info">{selected.size} selected</span>
-            {selected.size > 0 && (
-              <button className="uni-clear" onClick={() => onChange(new Set())}>Clear all</button>
-            )}
-          </div>
-          <div className="uni-list">
-            {shown.length === 0 ? (
-              <div className="uni-empty">No match</div>
-            ) : (
-              shown.map((name) => (
-                <label key={name} className="uni-item">
-                  <input
-                    type="checkbox"
-                    checked={selected.has(name)}
-                    onChange={() => toggle(name)}
-                  />
-                  <span>{name}</span>
-                </label>
-              ))
-            )}
-          </div>
-        </div>
-      )}
+      {open &&
+        createPortal(
+          <div ref={panelRef} className="uni-panel" style={{ top: pos.top, left: pos.left }}>
+            <input
+              className="uni-search"
+              type="text"
+              placeholder="Search..."
+              value={query}
+              autoFocus
+              onChange={(e) => setQuery(e.target.value)}
+            />
+            <div className="uni-actions">
+              <span className="page-info">{selected.size} selected</span>
+              {selected.size > 0 && (
+                <button className="uni-clear" onClick={() => onChange(new Set())}>Clear all</button>
+              )}
+            </div>
+            <div className="uni-list">
+              {shown.length === 0 ? (
+                <div className="uni-empty">No match</div>
+              ) : (
+                shown.map((name) => (
+                  <label key={name} className="uni-item">
+                    <input
+                      type="checkbox"
+                      checked={selected.has(name)}
+                      onChange={() => toggle(name)}
+                    />
+                    <span>{name}</span>
+                  </label>
+                ))
+              )}
+            </div>
+          </div>,
+          document.body
+        )}
     </span>
   );
 }
