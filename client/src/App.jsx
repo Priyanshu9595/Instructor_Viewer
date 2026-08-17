@@ -117,7 +117,27 @@ export default function App() {
   const [data, setData] = useState({ groups: [], columns: [], rows: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [dataVersion, setDataVersion] = useState(0);
   const isMobile = useIsMobile();
+
+  // Auto-refresh: poll the cheap /api/version endpoint every 5s; when BigQuery
+  // source data changes the version bumps and the table refetches itself.
+  useEffect(() => {
+    let known = null;
+    const tick = async () => {
+      try {
+        const res = await fetch("/api/version");
+        const { version } = await res.json();
+        if (known !== null && version !== known) setDataVersion(version);
+        known = version;
+      } catch {
+        /* server unreachable — try again next tick */
+      }
+    };
+    tick();
+    const id = setInterval(tick, 5000);
+    return () => clearInterval(id);
+  }, []);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -138,7 +158,7 @@ export default function App() {
       }
     })();
     return () => controller.abort();
-  }, [year, month]);
+  }, [year, month, dataVersion]);
 
   const { groups, columns } = data;
 

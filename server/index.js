@@ -276,6 +276,58 @@ app.get("/api/allocations", async (req, res) => {
 
 app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
+// ---------------------------------------------------------------------------
+// Change detection: poll BigQuery table metadata (last_modified_time — a free
+// 0-byte metadata query) every POLL_INTERVAL_SECONDS. When any source table
+// changes, bump dataVersion and clear the cache. The frontend polls
+// /api/version and refetches as soon as the version moves.
+// ---------------------------------------------------------------------------
+
+const POLL_MS = Math.max(2, parseInt(process.env.POLL_INTERVAL_SECONDS, 10) || 5) * 1000;
+const WATCHED = [
+  { dataset: ALLOC_DS, tables: [
+    "niat_instructor_managers_and_instructors_details",
+    "niat_instructor_session_schedule_details",
+    "niat_institute_details",
+  ]},
+  { dataset: "niat_reverse_etl_bases", tables: ["niat_instructor_details"] },
+];
+
+let dataVersion = 1;
+let lastSignature = null;
+
+async function checkForChanges() {
+  try {
+    const { bigquery, projectId } = getBigQuery();
+    const parts = WATCHED.map(
+      (w) =>
+        `SELECT '${w.dataset}' AS ds, table_id, last_modified_time
+         FROM \`${projectId}.${w.dataset}.__TABLES__\`
+         WHERE table_id IN (${w.tables.map((t) => `'${t}'`).join(",")})`
+    );
+    const [rows] = await bigquery.query({ query: parts.join(" UNION ALL ") });
+    const signature = rows
+      .map((r) => `${r.ds}.${r.table_id}:${r.last_modified_time}`)
+      .sort()
+      .join("|");
+
+    if (lastSignature !== null && signature !== lastSignature) {
+      allocCache.clear();
+      dataVersion++;
+      console.log(`[watch] source data changed → version ${dataVersion}`);
+    }
+    lastSignature = signature;
+  } catch (err) {
+    console.error("[watch] poll failed:", err.message);
+  }
+}
+
+// Cheap endpoint the frontend polls — no BigQuery cost, just a counter.
+app.get("/api/version", (_req, res) => res.json({ version: dataVersion }));
+
+setInterval(checkForChanges, POLL_MS);
+checkForChanges();
+
 // Fail fast on startup if BigQuery env/credentials are missing.
 try {
   getBigQuery();
