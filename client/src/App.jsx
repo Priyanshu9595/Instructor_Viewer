@@ -52,9 +52,12 @@ const checkState = (col, value) => {
   return Math.abs(parseFloat(value) - col.check.expect) <= col.check.tolerance ? "ok" : "bad";
 };
 
-// Searchable multi-select university filter, embedded in a column header.
+// Columns that get an Excel-style header filter (each filters its own values).
+const FILTER_COLS = ["department", "top_department", "designation", "workspace", "source_department"];
+
+// Searchable multi-select filter, embedded in a column header.
 // The panel is position:fixed so the table's scroll container can't clip it.
-function UniversityFilter({ options, selected, onChange }) {
+function ColumnFilter({ options, selected, onChange }) {
   const [open, setOpen] = useState(false);
   const [pos, setPos] = useState({ top: 0, left: 0 });
   const [query, setQuery] = useState("");
@@ -91,7 +94,7 @@ function UniversityFilter({ options, selected, onChange }) {
       <button
         className={selected.size > 0 ? "uni-trigger active" : "uni-trigger"}
         onClick={toggleOpen}
-        title="Filter by university"
+        title="Filter this column"
       >
         ▾{selected.size > 0 && <span className="uni-count">{selected.size}</span>}
       </button>
@@ -101,7 +104,7 @@ function UniversityFilter({ options, selected, onChange }) {
           <input
             className="uni-search"
             type="text"
-            placeholder="Search university..."
+            placeholder="Search..."
             value={query}
             autoFocus
             onChange={(e) => setQuery(e.target.value)}
@@ -263,35 +266,42 @@ export default function App() {
 
   const { groups, columns } = data;
 
-  // All universities present in this month's data (workspace values, split).
-  const universities = useMemo(() => {
-    const set = new Set();
-    for (const r of data.rows) {
-      String(r.workspace || "")
-        .split(",")
-        .map((x) => x.trim())
-        .filter(Boolean)
-        .forEach((u) => set.add(u));
+  // Distinct values per filterable column (multi-value cells split on comma).
+  const filterOptions = useMemo(() => {
+    const map = {};
+    for (const key of FILTER_COLS) {
+      const set = new Set();
+      for (const r of data.rows) {
+        String(r[key] || "")
+          .split(",")
+          .map((x) => x.trim())
+          .filter(Boolean)
+          .forEach((v) => set.add(v));
+      }
+      map[key] = [...set].sort();
     }
-    return [...set].sort();
+    return map;
   }, [data.rows]);
 
-  const [uniSelected, setUniSelected] = useState(new Set());
+  const [colFilters, setColFilters] = useState({}); // column key → Set of values
 
-  // Search + university filter + paginate locally.
+  // Search + column filters + paginate locally.
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     return data.rows.filter((r) => {
       if (q && !SEARCH_KEYS.some((k) => String(r[k] || "").toLowerCase().includes(q))) {
         return false;
       }
-      if (uniSelected.size > 0) {
-        const mine = String(r.workspace || "").split(",").map((x) => x.trim());
-        if (!mine.some((u) => uniSelected.has(u))) return false;
+      for (const key of FILTER_COLS) {
+        const sel = colFilters[key];
+        if (sel && sel.size > 0) {
+          const mine = String(r[key] || "").split(",").map((x) => x.trim());
+          if (!mine.some((v) => sel.has(v))) return false;
+        }
       }
       return true;
     });
-  }, [data.rows, search, uniSelected]);
+  }, [data.rows, search, colFilters]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -431,12 +441,12 @@ export default function App() {
                     style={stickyStyle(col)}
                   >
                     {col.label}
-                    {col.key === "designation" && (
-                      <UniversityFilter
-                        options={universities}
-                        selected={uniSelected}
+                    {FILTER_COLS.includes(col.key) && (
+                      <ColumnFilter
+                        options={filterOptions[col.key] || []}
+                        selected={colFilters[col.key] || new Set()}
                         onChange={(next) => {
-                          setUniSelected(next);
+                          setColFilters((prev) => ({ ...prev, [col.key]: next }));
                           setPage(1);
                         }}
                       />
