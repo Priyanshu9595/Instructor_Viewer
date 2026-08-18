@@ -239,6 +239,18 @@ app.get("/api/allocations", async (req, res) => {
         // Training-center / backup instructors always belong to NIAT 5 —
         // with no sessions, their whole allocation goes there (not Academy).
         const isTrainingBackup = /training institute|program[_ ]?ops/i.test(rec.workspace || "");
+        const niatBatch5 = !hasSessions && isTrainingBackup ? 1 : frac("niat_batch_5");
+        // Product Check = real sum of every allocated share. Rows with no
+        // allocation anywhere show 0% (red) instead of a fake 100%.
+        const productCheck =
+          (frac("intensive") || 0) +
+          (frac("intensive_offline") || 0) +
+          (frac("niat_batch_1_2") || 0) +
+          (frac("niat_batch_3") || 0) +
+          (frac("niat_batch_4") || 0) +
+          (niatBatch5 || 0) +
+          (frac("others") || 0) +
+          (frac("common") || 0);
         return {
           _id: rec.id,
           // Employee Number shows the instructor's email.
@@ -255,11 +267,8 @@ app.get("/api/allocations", async (req, res) => {
           designation: rec.designation,
           workspace: rec.workspace,
           source_department: rec.source_department,
-          product_check: 1,
+          product_check: productCheck,
           region_check: 1,
-          // Academy: language detail is not in the data — language columns and
-          // Check stay blank. Instructors with no sessions still get their
-          // whole allocation under Academy Product %.
           // Academy: no Academy data exists in the tables yet — the whole
           // group stays blank. Fill only when real data arrives; never guess.
           academy_others: null,
@@ -274,7 +283,7 @@ app.get("/api/allocations", async (req, res) => {
           niat_batch_4_product_cost: frac("niat_batch_4"),
           niat_batch_4_others: null,
           niat_batch_4_check: null,
-          niat_batch_5_product_pct: !hasSessions && isTrainingBackup ? 1 : frac("niat_batch_5"),
+          niat_batch_5_product_pct: niatBatch5,
           niat_batch_5_others: null,
           niat_batch_5_check: null,
           nxtwave_edge_product_pct: null,
