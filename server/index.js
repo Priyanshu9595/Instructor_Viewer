@@ -254,10 +254,13 @@ app.get("/api/allocations", async (req, res) => {
         }
       }
 
+      // Rows with neither a name nor an email are orphan records — drop them.
       // Most session minutes first, then alphabetical.
-      const recs = [...byInstructor.values()].sort(
-        (a, b) => b.totalMins - a.totalMins || String(a.employee_name).localeCompare(String(b.employee_name))
-      );
+      const recs = [...byInstructor.values()]
+        .filter((rec) => (rec.employee_name && rec.employee_name.trim()) || rec.email)
+        .sort(
+          (a, b) => b.totalMins - a.totalMins || String(a.employee_name).localeCompare(String(b.employee_name))
+        );
 
       rows = recs.map((rec) => {
         const frac = (bucket) =>
