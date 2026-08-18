@@ -333,9 +333,13 @@ export default function App() {
     workspace: 240,
     source_department: 200,
     benficiary_department: 185,
-    // Wide enough for the full "MAKE SURE ... COMES 100%" band label in one line
+    // Wide enough for their band labels to fit in one line
     product_check: 310,
     region_check: 300,
+    intensive_offline_product_pct: 175,
+    niat_batch_1_2_product_cost: 165,
+    nxtwave_edge_product_pct: 150,
+    nxtwave_launchpad_product_pct: 195,
   };
 
   const defaultWidth = (col) => {
