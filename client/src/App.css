@@ -395,8 +395,10 @@ thead tr:first-child th {
   text-overflow: clip;
   vertical-align: middle;
   text-transform: uppercase;
-  font-size: 12px;
-  letter-spacing: 0.6px;
+  font-size: 11px;
+  line-height: 1.25;
+  padding: 6px 10px; /* compact — same strip height as the subheader */
+  letter-spacing: 0.4px;
   font-weight: 700;
   color: #1f2937;
   background: #c2c1c1fd;
