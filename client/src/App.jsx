@@ -333,8 +333,9 @@ export default function App() {
     workspace: 240,
     source_department: 200,
     benficiary_department: 185,
-    product_check: 135,
-    region_check: 130,
+    // Wide enough for the full "MAKE SURE ... COMES 100%" band label in one line
+    product_check: 310,
+    region_check: 300,
   };
 
   const defaultWidth = (col) => {
