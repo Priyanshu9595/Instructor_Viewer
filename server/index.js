@@ -202,6 +202,7 @@ const ALLOC_SQL = (projectId) => `
     COALESCE(sc.session_workspace, r.workspace, e.m_workspace) AS workspace,
     COALESCE(r.source_department, sc.session_poc) AS source_department,
     hb.bucket AS home_bucket,
+    r.home_institute_id,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
@@ -240,6 +241,7 @@ app.get("/api/allocations", async (req, res) => {
             workspace: r.workspace,
             source_department: r.source_department,
             home_bucket: r.home_bucket,
+            home_institute_id: r.home_institute_id,
             buckets: {},
             totalMins: 0,
           };
@@ -266,8 +268,12 @@ app.get("/api/allocations", async (req, res) => {
         //   otherwise home university/institute allocated → 100% in that
         //   institute's dominant batch (home_bucket from the data)
         const isTrainingBackup = /training institute|program[_ ]?ops/i.test(rec.workspace || "");
+        // Home campus allocated but that campus has no session history yet
+        // (upcoming campus) → new intake → NIAT Batch 4 (diary note: 17+24 SEM 1).
         const assignedBucket = !hasSessions
-          ? (isTrainingBackup ? "niat_batch_5" : rec.home_bucket || null)
+          ? (isTrainingBackup
+              ? "niat_batch_5"
+              : rec.home_bucket || (rec.home_institute_id ? "niat_batch_4" : null))
           : null;
         const share = (bucket) =>
           hasSessions ? frac(bucket) : assignedBucket === bucket ? 1 : null;
