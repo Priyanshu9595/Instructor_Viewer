@@ -234,6 +234,9 @@ app.get("/api/allocations", async (req, res) => {
         const frac = (bucket) =>
           rec.totalMins > 0 && rec.buckets[bucket] ? rec.buckets[bucket] / rec.totalMins : null;
         const hasSessions = rec.totalMins > 0;
+        // Training-center / backup instructors always belong to NIAT 5 —
+        // with no sessions, their whole allocation goes there (not Academy).
+        const isTrainingBackup = /training institute|program[_ ]?ops/i.test(rec.workspace || "");
         return {
           _id: rec.id,
           // Employee Number shows the instructor's email.
@@ -256,7 +259,7 @@ app.get("/api/allocations", async (req, res) => {
           // Check stay blank. Instructors with no sessions still get their
           // whole allocation under Academy Product %.
           academy_others: null,
-          academy_product_pct: hasSessions ? null : 1,
+          academy_product_pct: hasSessions || isTrainingBackup ? null : 1,
           academy_check: null,
           intensive_product_pct: frac("intensive"),
           intensive_offline_product_pct: frac("intensive_offline"),
@@ -267,7 +270,7 @@ app.get("/api/allocations", async (req, res) => {
           niat_batch_4_product_cost: frac("niat_batch_4"),
           niat_batch_4_others: null,
           niat_batch_4_check: null,
-          niat_batch_5_product_pct: frac("niat_batch_5"),
+          niat_batch_5_product_pct: !hasSessions && isTrainingBackup ? 1 : frac("niat_batch_5"),
           niat_batch_5_others: null,
           niat_batch_5_check: null,
           nxtwave_edge_product_pct: null,
