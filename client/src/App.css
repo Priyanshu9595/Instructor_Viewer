@@ -1,9 +1,6 @@
 .page {
   padding: 8px 12px 24px;
-  height: 105vh;
   width: 98%;
-  display: flex;
-  flex-direction: column;
 }
 
 .page-header {
@@ -308,10 +305,6 @@
   border-radius: 14px;
   padding: 14px 10px;
   box-shadow: 0 1px 4px rgba(0, 0, 0, 0.05);
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
 }
 
 .search {
@@ -338,10 +331,10 @@
   font-size: 14px;
 }
 
+/* No inner vertical scrollbox — the table grows to full height and scrolls
+   with the page. Horizontal scroll stays (50 columns can't fit any screen). */
 .table-wrap {
-  overflow: auto;
-  flex: 1;
-  min-height: 0;
+  overflow-x: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
