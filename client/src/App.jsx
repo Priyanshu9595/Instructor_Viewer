@@ -203,7 +203,166 @@ function MonthYearPicker({ year, month, onChange }) {
   );
 }
 
+// Generic read-only browser for every BigQuery table in the project.
+// Columns come from the server's schema introspection — nothing hardcoded.
+const kindOf = (f) => {
+  if (/percent/i.test(f.name)) return "points";
+  if (["INTEGER", "FLOAT", "NUMERIC", "BIGNUMERIC"].includes(f.type)) return "number";
+  if (["DATE", "DATETIME", "TIMESTAMP"].includes(f.type)) return "date";
+  return "text";
+};
+const labelOf = (name) => name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const BROWSER_FORMAT = {
+  ...FORMAT,
+  points: (v) => (v === null || v === undefined || v === "" ? "—" : `${+(+v).toFixed(2)}%`),
+  number: (v) => (v === null || v === undefined || v === "" ? "—" : `${+parseFloat(v).toFixed(4)}`),
+};
+
+function TableBrowser() {
+  const [tableGroups, setTableGroups] = useState([]);
+  const [sel, setSel] = useState(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [data, setData] = useState({ schema: [], rows: [], total: 0 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await fetch("/api/tables");
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || `API error ${res.status}`);
+        setTableGroups(body.groups);
+        const first =
+          body.groups.find((g) => g.dataset === "niat_instructor_automation_data") ||
+          body.groups[0];
+        if (first?.tables?.length) setSel({ dataset: first.dataset, table: first.tables[0] });
+      } catch (err) {
+        setError(err.message);
+        setLoading(false);
+      }
+    })();
+  }, []);
+
+  useEffect(() => {
+    if (!sel) return;
+    const controller = new AbortController();
+    const t = setTimeout(async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const params = new URLSearchParams({
+          dataset: sel.dataset, table: sel.table, page, pageSize: 50, search,
+        });
+        const res = await fetch(`/api/table-data?${params}`, { signal: controller.signal });
+        const body = await res.json();
+        if (!res.ok) throw new Error(body.error || `API error ${res.status}`);
+        setData(body);
+      } catch (err) {
+        if (err.name !== "AbortError") setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    }, 400);
+    return () => {
+      clearTimeout(t);
+      controller.abort();
+    };
+  }, [sel, page, search]);
+
+  const cols = useMemo(
+    () => data.schema.map((f, i) => ({ key: f.name, label: labelOf(f.name), kind: kindOf(f), sticky: i === 0 })),
+    [data.schema]
+  );
+  const totalPages = Math.max(1, Math.ceil(data.total / 50));
+  const from = data.total === 0 ? 0 : (page - 1) * 50 + 1;
+  const to = Math.min(page * 50, data.total);
+  const sticky = (col, extra = {}) =>
+    col.sticky ? { left: 0, minWidth: 280, maxWidth: 280, ...extra } : extra;
+
+  return (
+    <>
+      <div className="toolbar browser-toolbar">
+        <select
+          className="table-picker"
+          value={sel ? `${sel.dataset}|${sel.table}` : ""}
+          onChange={(e) => {
+            const [dataset, table] = e.target.value.split("|");
+            setSel({ dataset, table });
+            setSearch("");
+            setPage(1);
+          }}
+        >
+          {tableGroups.map((g) => (
+            <optgroup key={g.dataset} label={g.dataset}>
+              {g.tables.map((t) => (
+                <option key={t} value={`${g.dataset}|${t}`}>{t}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <input
+          className="search browser-search"
+          type="text"
+          placeholder="Search text columns..."
+          value={search}
+          onChange={(e) => {
+            setSearch(e.target.value);
+            setPage(1);
+          }}
+        />
+      </div>
+
+      {error && <div className="banner error">Could not load data: {error}</div>}
+
+      <div className="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              {cols.map((col) => (
+                <th key={col.key} className={col.sticky ? "col-header sticky-col" : "col-header"} style={sticky(col, { top: 0 })}>
+                  {col.label}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {loading ? (
+              <tr><td className="status-cell" colSpan={cols.length || 1}>Loading...</td></tr>
+            ) : data.rows.length === 0 ? (
+              <tr><td className="status-cell" colSpan={cols.length || 1}>No rows found.</td></tr>
+            ) : (
+              data.rows.map((row, i) => (
+                <tr key={i}>
+                  {cols.map((col) => (
+                    <td key={col.key} className={col.sticky ? "sticky-col" : ""} style={sticky(col)}>
+                      {(BROWSER_FORMAT[col.kind] || BROWSER_FORMAT.text)(row[col.key])}
+                    </td>
+                  ))}
+                </tr>
+              ))
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="toolbar toolbar-right">
+        <div className="pagination">
+          <span className="page-info">
+            {loading ? "Loading..." : `${from.toLocaleString()}–${to.toLocaleString()} of ${data.total.toLocaleString()}`}
+          </span>
+          <button disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>
+          <span className="page-info">Page {page.toLocaleString()} / {totalPages.toLocaleString()}</span>
+          <button disabled={page >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next ›</button>
+        </div>
+      </div>
+    </>
+  );
+}
+
 export default function App() {
+  const [tab, setTab] = useState("allocation");
   const [year, setYear] = useState(CURRENT_YEAR);
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [search, setSearch] = useState("");
@@ -394,16 +553,18 @@ export default function App() {
         <div>
           <h1>Instructor Allocation</h1>
         </div>
-        <input
-          className="search header-search"
-          type="text"
-          placeholder="Search employee, department, designation, workspace, manager..."
-          value={search}
-          onChange={(e) => {
-            setSearch(e.target.value);
-            setPage(1);
-          }}
-        />
+        {tab === "allocation" && (
+          <input
+            className="search header-search"
+            type="text"
+            placeholder="Search employee, department, designation, workspace, manager..."
+            value={search}
+            onChange={(e) => {
+              setSearch(e.target.value);
+              setPage(1);
+            }}
+          />
+        )}
         <MonthYearPicker
           year={year}
           month={month}
@@ -415,6 +576,20 @@ export default function App() {
         />
       </header>
 
+      <nav className="tabs">
+        <button className={tab === "allocation" ? "tab active" : "tab"} onClick={() => setTab("allocation")}>
+          Instructor Allocation
+        </button>
+        <button className={tab === "tables" ? "tab active" : "tab"} onClick={() => setTab("tables")}>
+          All Tables
+        </button>
+      </nav>
+
+      {tab === "tables" ? (
+        <main className="card">
+          <TableBrowser />
+        </main>
+      ) : (
       <main className="card">
         {error && <div className="banner error">Could not load data: {error}</div>}
 
@@ -517,6 +692,7 @@ export default function App() {
           </div>
         </div>
       </main>
+      )}
     </div>
   );
 }
