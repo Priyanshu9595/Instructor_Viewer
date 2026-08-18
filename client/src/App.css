@@ -1,5 +1,5 @@
 .page {
-  padding: 8px 12px 24px;
+  padding: 4px 12px 24px;
   width: 98%;
 }
 
@@ -8,18 +8,17 @@
   align-items: center;
   justify-content: space-between;
   gap: 24px;
-  padding: 4px 6px;
-  margin-bottom: 18px;
+  padding: 0 6px;
+  margin-bottom: 10px;
 }
 
+/* Title, search and month picker all share the same 40px height */
 .page-header h1 {
-  font-size: 30px;
+  font-size: 28px;
   font-weight: 800;
   letter-spacing: -0.5px;
   white-space: nowrap;
-  line-height: 48px; /* same height as search + picker — one clean row */
-  position: relative;
-  top: -5px; /* optical nudge */
+  line-height: 40px;
 }
 
 /* Combined month-year picker */
@@ -30,10 +29,10 @@
 .my-button {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 12px;
-  height: 48px;
-  padding: 0 20px;
-  font-size: 15px;
+  border-radius: 10px;
+  height: 40px;
+  padding: 0 16px;
+  font-size: 14px;
   font-weight: 700;
   color: #374151;
   cursor: pointer;
