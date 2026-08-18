@@ -11,7 +11,7 @@ const MONTH_NAMES = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 2020 + 1 }, (_, i) => 2020 + i);
 
-const PAGE_SIZE = 100;
+const PAGE_SIZE = 10; // 10 rows per page — the page itself never needs to scroll
 
 const SEARCH_KEYS = [
   "employee_number", "employee_name", "department", "top_department",
