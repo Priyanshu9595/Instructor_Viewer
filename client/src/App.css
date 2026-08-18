@@ -54,6 +54,10 @@ body,
   white-space: nowrap;
 }
 
+.export-btn:hover {
+  background: #f3f4f6;
+}
+
 .my-caret {
   font-size: 11px;
   color: #9ca3af;

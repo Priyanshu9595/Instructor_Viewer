@@ -394,6 +394,27 @@ export default function App() {
   const stickyStyle = (col) =>
     col.sticky ? { left: stickyLefts[col.key] } : undefined;
 
+  // Export exactly what the table is showing: with search/filters applied,
+  // only the matching rows; with none, the whole month. Pagination ignored
+  // (every page's rows are included). Opens directly in Excel / Sheets.
+  const exportCsv = () => {
+    const cell = (col, row) => {
+      const v = formatCell(col, row[col.key]);
+      const s = v === "—" ? "" : String(v);
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header = columns.map((c) => cell({ kind: "text", key: "label" }, { label: c.label })).join(",");
+    const lines = filtered.map((r) => columns.map((c) => cell(c, r)).join(","));
+    const m = `${year}-${String(month).padStart(2, "0")}`;
+    const csv = "﻿" + [header, ...lines].join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `instructor-allocation-${m}.csv`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+
   return (
     <div className="page">
       <header className="page-header">
@@ -419,6 +440,9 @@ export default function App() {
             setPage(1);
           }}
         />
+        <button className="my-button export-btn" onClick={exportCsv} title="Download current view as CSV">
+          ⬇ Export
+        </button>
       </header>
 
       <main className="card">
