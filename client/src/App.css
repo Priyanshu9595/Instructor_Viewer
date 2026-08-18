@@ -1,12 +1,16 @@
-/* Exact viewport height — no page scrollbar on the side */
-body {
-  overflow-y: hidden;
+/* Exact viewport height — the window itself can never scroll; only the
+   table's own box scrolls (both directions). */
+html,
+body,
+#root {
+  height: 100%;
+  overflow: hidden;
 }
 
 .page {
   padding: 4px 12px 10px;
   width: 98%;
-  height: 100vh;
+  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -539,8 +543,11 @@ td.sticky-col {
 /* Short viewports (small windows / phones in desktop-site mode): allow the
    page to scroll instead of clipping the pagination. */
 @media (max-height: 640px) {
-  body {
-    overflow-y: auto;
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: auto;
   }
 
   .page {
@@ -551,8 +558,11 @@ td.sticky-col {
 
 /* ------------------------- Mobile (tablets & phones) ---------------------- */
 @media (max-width: 768px) {
-  body {
-    overflow-y: auto; /* phones scroll normally */
+  html,
+  body,
+  #root {
+    height: auto;
+    overflow: auto; /* phones scroll normally */
   }
 
   .page {
