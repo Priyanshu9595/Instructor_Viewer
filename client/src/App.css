@@ -397,7 +397,7 @@ thead tr:first-child th {
   text-transform: uppercase;
   font-size: 11px;
   line-height: 1.25;
-  padding: 6px 10px; /* compact — same strip height as the subheader */
+  padding: 8px 10px; /* matches subheader strip height (approx) */
   letter-spacing: 0.4px;
   font-weight: 700;
   color: #1f2937;
@@ -410,6 +410,8 @@ thead tr:first-child th {
 /* Row 2 — subheader: light gray, smaller and quieter */
 thead tr:nth-child(2) th {
   top: 0;
+  padding-top: 8px;
+  padding-bottom: 8px;
   font-size: 13px;
   font-weight: 600;
   color: #374151;
