@@ -389,35 +389,6 @@ export default function App() {
   const stickyStyle = (col) =>
     col.sticky ? { left: stickyLefts[col.key] } : undefined;
 
-  // Print the WHOLE table (every filtered row, every column) in a clean
-  // landscape view — not just the visible page.
-  const printTable = () => {
-    const esc = (s) =>
-      String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-    const bandRow = groups
-      .map((g) => `<th colspan="${g.leaves.length}">${esc(g.group || "")}</th>`)
-      .join("");
-    const labelRow = columns.map((c) => `<th>${esc(c.label)}</th>`).join("");
-    const body = filtered
-      .map((r) => `<tr>${columns.map((c) => `<td>${esc(formatCell(c, r[c.key]))}</td>`).join("")}</tr>`)
-      .join("");
-    const html = `<!doctype html><html><head><title>Instructor Allocation — ${MONTH_NAMES[month - 1]} ${year}</title>
-<style>
-@page { size: landscape; margin: 8mm; }
-body { font-family: "Segoe UI", Arial, sans-serif; }
-h3 { margin: 0 0 6px; font-size: 14px; }
-table { border-collapse: collapse; font-size: 7px; }
-th, td { border: 1px solid #999; padding: 2px 4px; text-align: left; white-space: nowrap; }
-th { background: #e5e7eb; }
-</style></head><body>
-<h3>Instructor Allocation — ${MONTH_NAMES[month - 1]} ${year} (${filtered.length} instructors)</h3>
-<table><thead><tr>${bandRow}</tr><tr>${labelRow}</tr></thead><tbody>${body}</tbody></table>
-<script>window.onload = () => window.print();</` + `script></body></html>`;
-    const w = window.open("", "_blank");
-    w.document.write(html);
-    w.document.close();
-  };
-
   return (
     <div className="page">
       <header className="page-header">
@@ -443,9 +414,6 @@ th { background: #e5e7eb; }
             setPage(1);
           }}
         />
-        <button className="my-button print-btn" onClick={printTable} title="Print full table">
-          🖨 Print
-        </button>
       </header>
 
       <main className="card">
