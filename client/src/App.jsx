@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+﻿import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import "./App.css";
 
@@ -10,6 +10,7 @@ const MONTH_NAMES = [
 // 2020 (data ki shuruaat) se current year tak — naya saal khud add ho jayega.
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 2020 + 1 }, (_, i) => 2020 + i);
+
 
 
 const SEARCH_KEYS = [
@@ -207,6 +208,7 @@ export default function App() {
   const [month, setMonth] = useState(new Date().getMonth() + 1);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
+  const [pageSize, setPageSize] = useState(50); // editable rows-per-page
   const [data, setData] = useState({ groups: [], columns: [], rows: [] });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -291,7 +293,7 @@ export default function App() {
     return map;
   }, [data.rows]);
 
-  const [colFilters, setColFilters] = useState({}); // column key → Set of values
+  const [colFilters, setColFilters] = useState({}); // column key â†’ Set of values
 
   // Search + column filters + paginate locally.
   const filtered = useMemo(() => {
@@ -311,8 +313,11 @@ export default function App() {
     });
   }, [data.rows, search, colFilters]);
 
-  // All rows render at once — the table scrolls, headers stay pinned.
-  const pageRows = filtered;
+  const totalPages = Math.max(1, Math.ceil(filtered.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filtered.slice((safePage - 1) * pageSize, safePage * pageSize);
+  const from = filtered.length === 0 ? 0 : (safePage - 1) * pageSize + 1;
+  const to = Math.min(safePage * pageSize, filtered.length);
 
   // Column widths — every column can be resized by dragging the handle on the
   // right edge of its subheader cell. Defaults are sized so everything is
@@ -505,10 +510,32 @@ export default function App() {
           </table>
         </div>
 
-        <div className="toolbar toolbar-right">
-          <span className="page-info">
-            {loading ? "Loading..." : `${filtered.length.toLocaleString()} instructors`}
+        <div className="toolbar table-footer">
+          <span className="page-info rows-label">
+            No of rows:{" "}
+            <input
+              className="rows-input"
+              type="number"
+              min="1"
+              max="1000"
+              value={pageSize}
+              onChange={(e) => {
+                const n = Math.max(1, Math.min(1000, parseInt(e.target.value, 10) || 1));
+                setPageSize(n);
+                setPage(1);
+              }}
+            />
           </span>
+          <div className="pagination">
+            <span className="page-info">
+              {loading
+                ? ""
+                : `${from.toLocaleString()}–${to.toLocaleString()} of ${filtered.length.toLocaleString()}`}
+            </span>
+            <button disabled={safePage <= 1 || loading} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>
+            <span className="page-info">Page {safePage} / {totalPages}</span>
+            <button disabled={safePage >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next ›</button>
+          </div>
         </div>
       </main>
     </div>

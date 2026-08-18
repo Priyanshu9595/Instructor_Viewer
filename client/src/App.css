@@ -280,11 +280,37 @@ body,
   font-size: 13.5px;
 }
 
+/* Table footer: row-range on the left, pager buttons on the right */
+.table-footer {
+  margin-top: 10px;
+  padding: 0 4px;
+}
+
+.rows-label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rows-input {
+  width: 64px;
+  padding: 5px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #111827;
+  border: 1px solid #d1d5db;
+  border-radius: 7px;
+  outline: none;
+}
+
+.rows-input:focus {
+  border-color: #2563eb;
+}
+
 .pagination {
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-top: 10px;
 }
 
 .pagination button {
@@ -485,23 +511,6 @@ thead th.sticky-col {
 
 td.sticky-col {
   box-shadow: 2px 0 4px rgba(126, 125, 125, 0.04);
-}
-
-/* Short viewports (small windows / phones in desktop-site mode): allow the
-   page to scroll instead of clipping the pagination. */
-@media (max-height: 640px) {
-  html,
-  body,
-  #root {
-    height: auto;
-    overflow: auto;
-  }
-
-  .page {
-    position: static;
-    height: auto;
-    min-height: 100vh;
-  }
 }
 
 /* ------------------------- Mobile (tablets & phones) ---------------------- */

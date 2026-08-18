@@ -106,11 +106,17 @@ const BUCKET_CASE_SQL = `
           CASE
             WHEN REGEXP_CONTAINS(COALESCE(i.institute_name_enum, ''), r'${BATCH_1_2_ENUM_RE}')
               THEN 'niat_batch_1_2'
-            WHEN s.derived_semester_title IN ('Semester 1', 'Semester 2') THEN 'niat_batch_4'
-            WHEN s.derived_semester_title IS NOT NULL THEN 'niat_batch_3'
-            WHEN REGEXP_CONTAINS(COALESCE(s.batch_name, ''), r'(?i)batch[ -]*1\\b') THEN 'niat_batch_3'
-            WHEN REGEXP_CONTAINS(COALESCE(s.batch_name, ''), r'(?i)batch[ -]*[2-9]') THEN 'niat_batch_4'
-            ELSE 'niat_batch_3'
+            -- Semester label counts ONLY if the session date falls inside that
+            -- semester's start–end dates (present-month reality). Stale labels
+            -- (e.g. "Semester 1" after it ended), missing labels or missing
+            -- dates → session is NOT counted at all (0 min). Never guessed.
+            WHEN s.derived_semester_title IS NOT NULL
+                 AND s.semester_start_date IS NOT NULL
+                 AND DATE(s.session_start_datetime)
+                     BETWEEN s.semester_start_date
+                     AND COALESCE(s.semester_end_date, DATE '9999-12-31')
+              THEN IF(s.derived_semester_title = 'Semester 1', 'niat_batch_4', 'niat_batch_3')
+            ELSE NULL
           END
         WHEN s.institute_type IS NULL THEN 'common'
         ELSE 'others'
@@ -168,27 +174,6 @@ const ALLOC_SQL = (projectId) => `
       ANY_VALUE(institute_name) AS m_workspace
     FROM \`${projectId}.niat_reverse_etl_bases.niat_instructor_details\`
     GROUP BY 1
-  ),
-  inst_bucket AS (
-    -- Each institute's dominant batch: this month's sessions decide; if the
-    -- campus had none this month, its all-time sessions decide. Used to give
-    -- no-session instructors 100% in their home university's batch.
-    SELECT institute_id, bucket FROM (
-      SELECT s.institute_id,
-        ${BUCKET_CASE_SQL} AS bucket,
-        SUM(CASE WHEN FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
-                 THEN COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0) ELSE 0 END) AS mins_month,
-        SUM(COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0)) AS mins_all
-      FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
-      LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
-        ON s.institute_id = i.institute_id
-      WHERE s.institute_id IS NOT NULL
-      GROUP BY 1, 2
-    )
-    QUALIFY ROW_NUMBER() OVER (
-      PARTITION BY institute_id
-      ORDER BY (mins_month > 0) DESC, mins_month DESC, mins_all DESC
-    ) = 1
   )
   SELECT
     COALESCE(r.instructor_user_id, s.instructor_user_id) AS instructor_user_id,
@@ -201,14 +186,11 @@ const ALLOC_SQL = (projectId) => `
     -- roster/master institute only when there were no sessions.
     COALESCE(sc.session_workspace, r.workspace, e.m_workspace) AS workspace,
     COALESCE(r.source_department, sc.session_poc) AS source_department,
-    hb.bucket AS home_bucket,
-    r.home_institute_id,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
   LEFT JOIN sess_campus sc USING (instructor_user_id)
   LEFT JOIN master e USING (instructor_user_id)
-  LEFT JOIN inst_bucket hb ON hb.institute_id = r.home_institute_id
 `;
 
 const allocCache = new Map(); // month → { ts, rows }
@@ -240,8 +222,6 @@ app.get("/api/allocations", async (req, res) => {
             designation: r.designation,
             workspace: r.workspace,
             source_department: r.source_department,
-            home_bucket: r.home_bucket,
-            home_institute_id: r.home_institute_id,
             buckets: {},
             totalMins: 0,
           };
@@ -265,21 +245,10 @@ app.get("/api/allocations", async (req, res) => {
       rows = recs.map((rec) => {
         const frac = (bucket) =>
           rec.totalMins > 0 && rec.buckets[bucket] ? rec.buckets[bucket] / rec.totalMins : null;
-        const hasSessions = rec.totalMins > 0;
-        // No sessions this month:
-        //   Training Institute / Program Ops home → NIAT 5 = 100% (backup)
-        //   otherwise home university/institute allocated → 100% in that
-        //   institute's dominant batch (home_bucket from the data)
-        const isTrainingBackup = /training institute|program[_ ]?ops/i.test(rec.workspace || "");
-        // Home campus allocated but that campus has no session history yet
-        // (upcoming campus) → new intake → NIAT Batch 4 (diary note: 17+24 SEM 1).
-        const assignedBucket = !hasSessions
-          ? (isTrainingBackup
-              ? "niat_batch_5"
-              : rec.home_bucket || (rec.home_institute_id ? "niat_batch_4" : null))
-          : null;
-        const share = (bucket) =>
-          hasSessions ? frac(bucket) : assignedBucket === bucket ? 1 : null;
+        // Only THIS month's classes count. No classes this month → everything
+        // zero; past/future months, home university, backup status — all
+        // irrelevant (user rule, 18 Aug 2026).
+        const share = frac;
         // Product Check = real sum of every allocated share. Rows with no
         // allocation anywhere show 0% (red) instead of a fake 100%.
         const productCheck =
