@@ -94,33 +94,10 @@ const BATCH_1_2_ENUM_RE = "(?i)(PILOT|KKH)";
 // Wherever this institute_id appears, Workspace shows the enum NIAT_KKH:
 const KKH_INSTITUTE_ID = "c70904a0a7e644acbcca40f3704b2c59";
 
-const ALLOC_SQL = (projectId) => `
-  WITH roster AS (
-    SELECT r.instructor_user_id,
-      ANY_VALUE(r.instructor_name) AS employee_name,
-      ANY_VALUE(r.instructor_category) AS department,
-      ANY_VALUE(r.instructor_manager_category) AS top_department,
-      ANY_VALUE(r.instructor_role) AS designation,
-      STRING_AGG(DISTINCT
-        CASE
-          WHEN i.institute_id = '${KKH_INSTITUTE_ID}' THEN i.institute_name_enum
-          ELSE r.institute_name
-        END, ', ') AS workspace,
-      ANY_VALUE(r.instructor_manager) AS source_department
-    FROM \`${projectId}.${ALLOC_DS}.niat_instructor_managers_and_instructors_details\` r
-    LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
-      ON r.institute_name = i.institute_name
-    GROUP BY 1
-  ),
-  sess AS (
-    SELECT s.instructor_user_id,
-      ANY_VALUE(s.instructor_name) AS session_name,
-      -- NIAT batches (diary note, 23 Feb):
-      --   1 & 2 → Pilot + KKH campuses
-      --   3     → university campuses, senior cohort  (Semester 3+)
-      --   4     → university campuses, new intake     (Semester 1–2)
-      --   5     → Training / Backup (NIAT_TRAINING)
-      -- Sessions without a semester fall back to batch_name (Batch-1 = senior).
+// Session → bucket rules (diary note, 23 Feb). Used both for per-instructor
+// shares and to find each institute's dominant batch (aliases: s = session
+// schedule row, i = institute master row).
+const BUCKET_CASE_SQL = `
       CASE
         WHEN s.institute_type = 'INTENSIVE_OFFLINE' THEN 'intensive_offline'
         WHEN s.institute_type = 'INTENSIVE' THEN 'intensive'
@@ -137,7 +114,31 @@ const ALLOC_SQL = (projectId) => `
           END
         WHEN s.institute_type IS NULL THEN 'common'
         ELSE 'others'
-      END AS bucket,
+      END`;
+
+const ALLOC_SQL = (projectId) => `
+  WITH roster AS (
+    SELECT r.instructor_user_id,
+      ANY_VALUE(r.instructor_name) AS employee_name,
+      ANY_VALUE(r.instructor_category) AS department,
+      ANY_VALUE(r.instructor_manager_category) AS top_department,
+      ANY_VALUE(r.instructor_role) AS designation,
+      STRING_AGG(DISTINCT
+        CASE
+          WHEN i.institute_id = '${KKH_INSTITUTE_ID}' THEN i.institute_name_enum
+          ELSE r.institute_name
+        END, ', ') AS workspace,
+      ANY_VALUE(r.instructor_manager) AS source_department,
+      ANY_VALUE(i.institute_id) AS home_institute_id
+    FROM \`${projectId}.${ALLOC_DS}.niat_instructor_managers_and_instructors_details\` r
+    LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
+      ON r.institute_name = i.institute_name
+    GROUP BY 1
+  ),
+  sess AS (
+    SELECT s.instructor_user_id,
+      ANY_VALUE(s.instructor_name) AS session_name,
+      ${BUCKET_CASE_SQL} AS bucket,
       SUM(COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0)) AS mins
     FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
     LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
@@ -167,6 +168,27 @@ const ALLOC_SQL = (projectId) => `
       ANY_VALUE(institute_name) AS m_workspace
     FROM \`${projectId}.niat_reverse_etl_bases.niat_instructor_details\`
     GROUP BY 1
+  ),
+  inst_bucket AS (
+    -- Each institute's dominant batch: this month's sessions decide; if the
+    -- campus had none this month, its all-time sessions decide. Used to give
+    -- no-session instructors 100% in their home university's batch.
+    SELECT institute_id, bucket FROM (
+      SELECT s.institute_id,
+        ${BUCKET_CASE_SQL} AS bucket,
+        SUM(CASE WHEN FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
+                 THEN COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0) ELSE 0 END) AS mins_month,
+        SUM(COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0)) AS mins_all
+      FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
+      LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
+        ON s.institute_id = i.institute_id
+      WHERE s.institute_id IS NOT NULL
+      GROUP BY 1, 2
+    )
+    QUALIFY ROW_NUMBER() OVER (
+      PARTITION BY institute_id
+      ORDER BY (mins_month > 0) DESC, mins_month DESC, mins_all DESC
+    ) = 1
   )
   SELECT
     COALESCE(r.instructor_user_id, s.instructor_user_id) AS instructor_user_id,
@@ -179,11 +201,13 @@ const ALLOC_SQL = (projectId) => `
     -- roster/master institute only when there were no sessions.
     COALESCE(sc.session_workspace, r.workspace, e.m_workspace) AS workspace,
     COALESCE(r.source_department, sc.session_poc) AS source_department,
+    hb.bucket AS home_bucket,
     s.bucket, s.mins
   FROM roster r
   FULL OUTER JOIN sess s USING (instructor_user_id)
   LEFT JOIN sess_campus sc USING (instructor_user_id)
   LEFT JOIN master e USING (instructor_user_id)
+  LEFT JOIN inst_bucket hb ON hb.institute_id = r.home_institute_id
 `;
 
 const allocCache = new Map(); // month → { ts, rows }
@@ -215,6 +239,7 @@ app.get("/api/allocations", async (req, res) => {
             designation: r.designation,
             workspace: r.workspace,
             source_department: r.source_department,
+            home_bucket: r.home_bucket,
             buckets: {},
             totalMins: 0,
           };
@@ -236,21 +261,27 @@ app.get("/api/allocations", async (req, res) => {
         const frac = (bucket) =>
           rec.totalMins > 0 && rec.buckets[bucket] ? rec.buckets[bucket] / rec.totalMins : null;
         const hasSessions = rec.totalMins > 0;
-        // Training-center / backup instructors always belong to NIAT 5 —
-        // with no sessions, their whole allocation goes there (not Academy).
+        // No sessions this month:
+        //   Training Institute / Program Ops home → NIAT 5 = 100% (backup)
+        //   otherwise home university/institute allocated → 100% in that
+        //   institute's dominant batch (home_bucket from the data)
         const isTrainingBackup = /training institute|program[_ ]?ops/i.test(rec.workspace || "");
-        const niatBatch5 = !hasSessions && isTrainingBackup ? 1 : frac("niat_batch_5");
+        const assignedBucket = !hasSessions
+          ? (isTrainingBackup ? "niat_batch_5" : rec.home_bucket || null)
+          : null;
+        const share = (bucket) =>
+          hasSessions ? frac(bucket) : assignedBucket === bucket ? 1 : null;
         // Product Check = real sum of every allocated share. Rows with no
         // allocation anywhere show 0% (red) instead of a fake 100%.
         const productCheck =
-          (frac("intensive") || 0) +
-          (frac("intensive_offline") || 0) +
-          (frac("niat_batch_1_2") || 0) +
-          (frac("niat_batch_3") || 0) +
-          (frac("niat_batch_4") || 0) +
-          (niatBatch5 || 0) +
-          (frac("others") || 0) +
-          (frac("common") || 0);
+          (share("intensive") || 0) +
+          (share("intensive_offline") || 0) +
+          (share("niat_batch_1_2") || 0) +
+          (share("niat_batch_3") || 0) +
+          (share("niat_batch_4") || 0) +
+          (share("niat_batch_5") || 0) +
+          (share("others") || 0) +
+          (share("common") || 0);
         return {
           _id: rec.id,
           // Employee Number shows the instructor's email.
@@ -274,22 +305,22 @@ app.get("/api/allocations", async (req, res) => {
           academy_others: null,
           academy_product_pct: null,
           academy_check: null,
-          intensive_product_pct: frac("intensive"),
-          intensive_offline_product_pct: frac("intensive_offline"),
-          niat_batch_1_2_product_cost: frac("niat_batch_1_2"),
-          niat_batch_3_product_cost: frac("niat_batch_3"),
+          intensive_product_pct: share("intensive"),
+          intensive_offline_product_pct: share("intensive_offline"),
+          niat_batch_1_2_product_cost: share("niat_batch_1_2"),
+          niat_batch_3_product_cost: share("niat_batch_3"),
           // Batch 4 = new intake (Sem 1–2), Batch 5 = Training/Backup.
           // Language split columns stay blank (no language data).
-          niat_batch_4_product_cost: frac("niat_batch_4"),
+          niat_batch_4_product_cost: share("niat_batch_4"),
           niat_batch_4_others: null,
           niat_batch_4_check: null,
-          niat_batch_5_product_pct: niatBatch5,
+          niat_batch_5_product_pct: share("niat_batch_5"),
           niat_batch_5_others: null,
           niat_batch_5_check: null,
           nxtwave_edge_product_pct: null,
           nxtwave_launchpad_product_pct: null,
-          others_product_pct: frac("others"),
-          common_all: frac("common"),
+          others_product_pct: share("others"),
+          common_all: share("common"),
         };
       });
 
