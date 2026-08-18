@@ -477,6 +477,19 @@ td.sticky-col {
   box-shadow: 2px 0 4px rgba(126, 125, 125, 0.04);
 }
 
+/* Short viewports (small windows / phones in desktop-site mode): allow the
+   page to scroll instead of clipping the pagination. */
+@media (max-height: 640px) {
+  body {
+    overflow-y: auto;
+  }
+
+  .page {
+    height: auto;
+    min-height: 100vh;
+  }
+}
+
 /* ------------------------- Mobile (tablets & phones) ---------------------- */
 @media (max-width: 768px) {
   body {
