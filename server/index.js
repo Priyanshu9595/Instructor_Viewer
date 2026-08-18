@@ -175,7 +175,9 @@ const ALLOC_SQL = (projectId) => `
     COALESCE(r.department, e.m_department) AS department,
     r.top_department,
     COALESCE(r.designation, e.m_designation) AS designation,
-    COALESCE(r.workspace, sc.session_workspace, e.m_workspace) AS workspace,
+    -- Workspace = institutes where the instructor actually taught this month;
+    -- roster/master institute only when there were no sessions.
+    COALESCE(sc.session_workspace, r.workspace, e.m_workspace) AS workspace,
     COALESCE(r.source_department, sc.session_poc) AS source_department,
     s.bucket, s.mins
   FROM roster r
