@@ -7,10 +7,12 @@ body,
   overflow: hidden;
 }
 
+/* Fixed to the viewport — the document itself has zero scrollable height,
+   so a window scrollbar is impossible. Only the table box scrolls. */
 .page {
+  position: fixed;
+  inset: 0;
   padding: 4px 12px 10px;
-  width: 98%;
-  height: 100%;
   display: flex;
   flex-direction: column;
 }
@@ -496,6 +498,7 @@ td.sticky-col {
   }
 
   .page {
+    position: static;
     height: auto;
     min-height: 100vh;
   }
@@ -511,6 +514,7 @@ td.sticky-col {
   }
 
   .page {
+    position: static;
     padding: 10px 8px;
     height: auto;
     min-height: 100dvh;
