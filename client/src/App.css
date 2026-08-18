@@ -1,7 +1,12 @@
+/* Exact viewport height — no page scrollbar on the side */
+body {
+  overflow-y: hidden;
+}
+
 .page {
   padding: 4px 12px 10px;
   width: 98%;
-  min-height: 100vh;
+  height: 100vh;
   display: flex;
   flex-direction: column;
 }
@@ -474,6 +479,10 @@ td.sticky-col {
 
 /* ------------------------- Mobile (tablets & phones) ---------------------- */
 @media (max-width: 768px) {
+  body {
+    overflow-y: auto; /* phones scroll normally */
+  }
+
   .page {
     padding: 10px 8px;
     height: auto;
