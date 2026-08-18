@@ -115,13 +115,24 @@ const ALLOC_SQL = (projectId) => `
   sess AS (
     SELECT s.instructor_user_id,
       ANY_VALUE(s.instructor_name) AS session_name,
+      -- NIAT batches (diary note, 23 Feb):
+      --   1 & 2 → Pilot + KKH campuses
+      --   3     → university campuses, senior cohort  (Semester 3+)
+      --   4     → university campuses, new intake     (Semester 1–2)
+      --   5     → Training / Backup (NIAT_TRAINING)
+      -- Sessions without a semester fall back to batch_name (Batch-1 = senior).
       CASE
         WHEN s.institute_type = 'INTENSIVE_OFFLINE' THEN 'intensive_offline'
         WHEN s.institute_type = 'INTENSIVE' THEN 'intensive'
-        WHEN s.institute_type IN ('NIAT_OFFLINE', 'NIAT_TRAINING') THEN
+        WHEN s.institute_type = 'NIAT_TRAINING' THEN 'niat_batch_5'
+        WHEN s.institute_type = 'NIAT_OFFLINE' THEN
           CASE
             WHEN REGEXP_CONTAINS(COALESCE(i.institute_name_enum, ''), r'${BATCH_1_2_ENUM_RE}')
               THEN 'niat_batch_1_2'
+            WHEN s.derived_semester_title IN ('Semester 1', 'Semester 2') THEN 'niat_batch_4'
+            WHEN s.derived_semester_title IS NOT NULL THEN 'niat_batch_3'
+            WHEN REGEXP_CONTAINS(COALESCE(s.batch_name, ''), r'(?i)batch[ -]*1\\b') THEN 'niat_batch_3'
+            WHEN REGEXP_CONTAINS(COALESCE(s.batch_name, ''), r'(?i)batch[ -]*[2-9]') THEN 'niat_batch_4'
             ELSE 'niat_batch_3'
           END
         WHEN s.institute_type IS NULL THEN 'common'
@@ -251,11 +262,12 @@ app.get("/api/allocations", async (req, res) => {
           intensive_offline_product_pct: frac("intensive_offline"),
           niat_batch_1_2_product_cost: frac("niat_batch_1_2"),
           niat_batch_3_product_cost: frac("niat_batch_3"),
-          // Batches 4 & 5 (upcoming campuses) stay blank until data exists.
-          niat_batch_4_product_cost: null,
+          // Batch 4 = new intake (Sem 1–2), Batch 5 = Training/Backup.
+          // Language split columns stay blank (no language data).
+          niat_batch_4_product_cost: frac("niat_batch_4"),
           niat_batch_4_others: null,
           niat_batch_4_check: null,
-          niat_batch_5_product_pct: null,
+          niat_batch_5_product_pct: frac("niat_batch_5"),
           niat_batch_5_others: null,
           niat_batch_5_check: null,
           nxtwave_edge_product_pct: null,
