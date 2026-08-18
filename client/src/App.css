@@ -399,10 +399,12 @@ body {
   font-size: 14px;
 }
 
-/* No inner vertical scrollbox — the table grows to full height and scrolls
-   with the page. Horizontal scroll stays (50 columns can't fit any screen). */
+/* Table scrolls inside the card (both directions); the two header rows stay
+   pinned at the top while scrolling. */
 .table-wrap {
-  overflow-x: auto;
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
 }
@@ -458,6 +460,7 @@ thead th {
    Labels wrap instead of truncating — always fully readable. */
 thead tr:first-child th {
   top: 0;
+  height: 32px; /* fixed so the subheader can pin right below it */
   white-space: normal;
   overflow: visible;
   text-overflow: clip;
@@ -465,7 +468,7 @@ thead tr:first-child th {
   text-transform: uppercase;
   font-size: 11px;
   line-height: 1.25;
-  padding: 8px 10px; /* matches subheader strip height (approx) */
+  padding: 8px 10px;
   letter-spacing: 0.4px;
   font-weight: 700;
   color: #1f2937;
@@ -477,7 +480,7 @@ thead tr:first-child th {
 
 /* Row 2 — subheader: light gray, smaller and quieter */
 thead tr:nth-child(2) th {
-  top: 0;
+  top: 32px; /* pinned right under the group band while scrolling */
   padding-top: 8px;
   padding-bottom: 8px;
   font-size: 13px;

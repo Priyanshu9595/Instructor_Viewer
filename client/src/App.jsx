@@ -11,7 +11,6 @@ const MONTH_NAMES = [
 const CURRENT_YEAR = new Date().getFullYear();
 const YEARS = Array.from({ length: CURRENT_YEAR - 2020 + 1 }, (_, i) => 2020 + i);
 
-const PAGE_SIZE = 12; // 12 rows per page — the page itself never needs to scroll
 
 const SEARCH_KEYS = [
   "employee_number", "employee_name", "department", "top_department",
@@ -471,11 +470,8 @@ export default function App() {
     });
   }, [data.rows, search, colFilters]);
 
-  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const safePage = Math.min(page, totalPages);
-  const pageRows = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
-  const from = filtered.length === 0 ? 0 : (safePage - 1) * PAGE_SIZE + 1;
-  const to = Math.min(safePage * PAGE_SIZE, filtered.length);
+  // All rows render at once — the table scrolls, headers stay pinned.
+  const pageRows = filtered;
 
   // Column widths — every column can be resized by dragging the handle on the
   // right edge of its subheader cell. Defaults are sized so everything is
@@ -685,16 +681,9 @@ export default function App() {
         </div>
 
         <div className="toolbar toolbar-right">
-          <div className="pagination">
-            <span className="page-info">
-              {loading
-                ? "Loading…"
-                : `${from.toLocaleString()}–${to.toLocaleString()} of ${filtered.length.toLocaleString()}`}
-            </span>
-            <button disabled={safePage <= 1 || loading} onClick={() => setPage((p) => p - 1)}>‹ Prev</button>
-            <span className="page-info">Page {safePage} / {totalPages}</span>
-            <button disabled={safePage >= totalPages || loading} onClick={() => setPage((p) => p + 1)}>Next ›</button>
-          </div>
+          <span className="page-info">
+            {loading ? "Loading..." : `${filtered.length.toLocaleString()} instructors`}
+          </span>
         </div>
       </main>
       )}
