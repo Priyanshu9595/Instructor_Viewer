@@ -260,8 +260,10 @@ app.get("/api/allocations", async (req, res) => {
           // Academy: language detail is not in the data — language columns and
           // Check stay blank. Instructors with no sessions still get their
           // whole allocation under Academy Product %.
+          // Academy: no Academy data exists in the tables yet — the whole
+          // group stays blank. Fill only when real data arrives; never guess.
           academy_others: null,
-          academy_product_pct: hasSessions || isTrainingBackup ? null : 1,
+          academy_product_pct: null,
           academy_check: null,
           intensive_product_pct: frac("intensive"),
           intensive_offline_product_pct: frac("intensive_offline"),
