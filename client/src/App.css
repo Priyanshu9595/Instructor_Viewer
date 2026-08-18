@@ -37,10 +37,10 @@ body {
 .my-button {
   background: #fff;
   border: 1px solid #e5e7eb;
-  border-radius: 10px;
-  height: 40px;
-  padding: 0 16px;
-  font-size: 14px;
+  border-radius: 8px;
+  height: 34px;
+  padding: 0 12px;
+  font-size: 13px;
   font-weight: 700;
   color: #374151;
   cursor: pointer;
