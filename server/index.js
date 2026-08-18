@@ -94,34 +94,6 @@ const BATCH_1_2_ENUM_RE = "(?i)(PILOT|KKH)";
 // Wherever this institute_id appears, Workspace shows the enum NIAT_KKH:
 const KKH_INSTITUTE_ID = "c70904a0a7e644acbcca40f3704b2c59";
 
-// Session → bucket rules (diary note, 23 Feb). Used both for per-instructor
-// shares and to find each institute's dominant batch (aliases: s = session
-// schedule row, i = institute master row).
-const BUCKET_CASE_SQL = `
-      CASE
-        WHEN s.institute_type = 'INTENSIVE_OFFLINE' THEN 'intensive_offline'
-        WHEN s.institute_type = 'INTENSIVE' THEN 'intensive'
-        WHEN s.institute_type = 'NIAT_TRAINING' THEN 'niat_batch_5'
-        WHEN s.institute_type = 'NIAT_OFFLINE' THEN
-          CASE
-            WHEN REGEXP_CONTAINS(COALESCE(i.institute_name_enum, ''), r'${BATCH_1_2_ENUM_RE}')
-              THEN 'niat_batch_1_2'
-            -- Semester label counts ONLY if the session date falls inside that
-            -- semester's start–end dates (present-month reality). Stale labels
-            -- (e.g. "Semester 1" after it ended), missing labels or missing
-            -- dates → session is NOT counted at all (0 min). Never guessed.
-            WHEN s.derived_semester_title IS NOT NULL
-                 AND s.semester_start_date IS NOT NULL
-                 AND DATE(s.session_start_datetime)
-                     BETWEEN s.semester_start_date
-                     AND COALESCE(s.semester_end_date, DATE '9999-12-31')
-              THEN IF(s.derived_semester_title = 'Semester 1', 'niat_batch_4', 'niat_batch_3')
-            ELSE NULL
-          END
-        WHEN s.institute_type IS NULL THEN 'common'
-        ELSE 'others'
-      END`;
-
 const ALLOC_SQL = (projectId) => `
   WITH roster AS (
     SELECT r.instructor_user_id,
@@ -141,16 +113,76 @@ const ALLOC_SQL = (projectId) => `
       ON r.institute_name = i.institute_name
     GROUP BY 1
   ),
-  sess AS (
-    SELECT s.instructor_user_id,
-      ANY_VALUE(s.instructor_name) AS session_name,
-      ${BUCKET_CASE_SQL} AS bucket,
-      SUM(COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0)) AS mins
+  sem_cal AS (
+    -- Official semester calendar: institute × batch (cohort) × semester with
+    -- its date range. Used to resolve sessions that carry no valid semester
+    -- label of their own — an exact lookup, not a guess.
+    SELECT institute_id, batch_name, derived_semester_title,
+      MIN(semester_start_date) AS sem_start,
+      MAX(semester_end_date) AS sem_end
+    FROM \`${projectId}.${ALLOC_DS}.niat_institute_wise_semester_course_session_details\`
+    WHERE derived_semester_title IS NOT NULL AND semester_start_date IS NOT NULL
+    GROUP BY 1, 2, 3
+  ),
+  sess_resolved AS (
+    -- Each session's semester, resolved in order:
+    --   1) its own label — only if the session date lies inside that
+    --      semester's start–end dates (stale labels rejected)
+    --   2) calendar lookup: institute + batch + session date
+    --   3) neither → NULL → the session is NOT counted (0 min)
+    SELECT
+      s.instructor_user_id,
+      s.instructor_name,
+      s.institute_type,
+      i.institute_name_enum,
+      COALESCE(s.session_duration_in_mins_from_schedule_time, s.session_duration, 0) AS mins,
+      COALESCE(
+        IF(
+          s.derived_semester_title IS NOT NULL
+            AND s.semester_start_date IS NOT NULL
+            AND DATE(s.session_start_datetime)
+                BETWEEN s.semester_start_date
+                AND COALESCE(s.semester_end_date, DATE '9999-12-31'),
+          s.derived_semester_title,
+          NULL
+        ),
+        c.derived_semester_title
+      ) AS sem
     FROM \`${projectId}.${ALLOC_DS}.niat_instructor_session_schedule_details\` s
     LEFT JOIN \`${projectId}.${ALLOC_DS}.niat_institute_details\` i
       ON s.institute_id = i.institute_id
+    LEFT JOIN sem_cal c
+      ON c.institute_id = s.institute_id
+      AND c.batch_name = s.batch_name
+      AND DATE(s.session_start_datetime)
+          BETWEEN c.sem_start AND COALESCE(c.sem_end, DATE '9999-12-31')
     WHERE FORMAT_DATETIME('%Y-%m', s.session_start_datetime) = @month
-    GROUP BY s.instructor_user_id, bucket
+    QUALIFY ROW_NUMBER() OVER (
+      PARTITION BY s.instructor_user_id, s.session_id, s.session_section_id, s.session_start_datetime
+      ORDER BY c.sem_start DESC
+    ) = 1
+  ),
+  sess AS (
+    SELECT instructor_user_id,
+      ANY_VALUE(instructor_name) AS session_name,
+      CASE
+        WHEN institute_type = 'INTENSIVE_OFFLINE' THEN 'intensive_offline'
+        WHEN institute_type = 'INTENSIVE' THEN 'intensive'
+        WHEN institute_type = 'NIAT_TRAINING' THEN 'niat_batch_5'
+        WHEN institute_type = 'NIAT_OFFLINE' THEN
+          CASE
+            WHEN REGEXP_CONTAINS(COALESCE(institute_name_enum, ''), r'${BATCH_1_2_ENUM_RE}')
+              THEN 'niat_batch_1_2'
+            WHEN sem = 'Semester 1' THEN 'niat_batch_4'
+            WHEN sem IS NOT NULL THEN 'niat_batch_3'
+            ELSE NULL
+          END
+        WHEN institute_type IS NULL THEN 'common'
+        ELSE 'others'
+      END AS bucket,
+      SUM(mins) AS mins
+    FROM sess_resolved
+    GROUP BY instructor_user_id, bucket
   )
   , sess_campus AS (
     -- Fallback workspace: the campuses the instructor actually taught at this
