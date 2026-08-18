@@ -403,13 +403,13 @@ thead tr:first-child th {
   color: #1f2937;
   background: #c2c1c1fd;
   border-right-color: #adaeb1;
-  border-bottom: 2px solid #9ca3af;
+  border-bottom: 1px solid #adaeb1; /* thin, flush with the subheader — no gap */
   text-align: left;
 }
 
 /* Row 2 — subheader: light gray, smaller and quieter */
 thead tr:nth-child(2) th {
-  top: 38px;
+  top: 0;
   font-size: 13px;
   font-weight: 600;
   color: #374151;
