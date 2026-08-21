@@ -98,7 +98,6 @@ const ALLOC_SQL = (projectId) => `
   WITH roster AS (
     SELECT r.instructor_user_id,
       ANY_VALUE(r.instructor_name) AS employee_name,
-      ANY_VALUE(r.instructor_category) AS department,
       ANY_VALUE(r.instructor_manager_category) AS top_department,
       ANY_VALUE(r.instructor_role) AS designation,
       STRING_AGG(DISTINCT
@@ -211,7 +210,9 @@ const ALLOC_SQL = (projectId) => `
     COALESCE(r.instructor_user_id, s.instructor_user_id) AS instructor_user_id,
     COALESCE(r.employee_name, s.session_name) AS employee_name,
     e.email,
-    COALESCE(r.department, e.m_department) AS department,
+    -- roster's instructor_category column was removed from BigQuery
+    -- (schema change, 21 Aug 2026) — department now comes from the master.
+    e.m_department AS department,
     r.top_department,
     COALESCE(r.designation, e.m_designation) AS designation,
     -- Workspace = institutes where the instructor actually taught this month;
